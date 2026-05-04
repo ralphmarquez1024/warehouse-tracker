@@ -786,10 +786,16 @@ window.submitLogin = async function() {
 
 async function doLogout() {
   if (!confirm('Log out?')) return;
-  await sb.auth.signOut();
-  await refreshUser();
-  showToast('Logged out', 'info');
-  await loadAll();
+  try {
+    await sb.auth.signOut({ scope: 'local' });
+  } catch (e) {
+    console.warn('signOut error (ignored):', e);
+  }
+  // Clear any leftover Supabase auth from local storage just in case
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('sb-'))
+    .forEach(k => localStorage.removeItem(k));
+  location.reload();
 }
 
 // ═══════════════════════════════════════════════════════════
