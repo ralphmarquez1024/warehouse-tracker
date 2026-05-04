@@ -13,5 +13,5 @@
 // security and must stay server-side.
 // ═══════════════════════════════════════════════════════════
 
-window.SUPABASE_URL = 'https://sczkukdzqnfnsqtegxdc.supabase.co/rest/v1/';
+window.SUPABASE_URL = 'https://sczkukdzqnfnsqtegxdc.supabase.co';
 window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjemt1a2R6cW5mbnNxdGVneGRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4NjEzNjgsImV4cCI6MjA5MzQzNzM2OH0.9qWhvx7CgiJJsWIikUP7VC0R-foq2WcKJekPEUlfe-g';
