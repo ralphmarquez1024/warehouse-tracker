@@ -1,0 +1,1915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WarehouseTracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0a0c14;--surface:#13162a;--surface2:#1c2038;--surface3:#242848;
+      --border:#2a2f52;--border2:#363d66;
+      --accent:#4f8ef7;--accent2:#22c55e;--warn:#f59e0b;--danger:#ef4444;--purple:#a855f7;
+      --text:#e8eaf6;--muted:#7b82a8;--muted2:#555c85;
+      --mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
+      --radius:10px;
+    }
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
+    .app{max-width:1400px;margin:0 auto;padding:28px 20px}
+
+    .header{display:flex;align-items:center;gap:14px;margin-bottom:28px;padding-bottom:22px;border-bottom:1px solid var(--border)}
+    .header-icon{width:44px;height:44px;background:linear-gradient(135deg,#4f8ef7,#7c3aed);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 16px rgba(79,142,247,.3)}
+    .header h1{font-family:var(--mono);font-size:18px;letter-spacing:-0.5px}
+    .header p{font-size:12px;color:var(--muted);margin-top:3px}
+    .header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .header-status{font-size:11px;font-family:var(--mono);padding:4px 10px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--muted)}
+    .header-status.online{color:var(--accent2);border-color:rgba(34,197,94,.3)}
+    .header-status.offline{color:var(--danger);border-color:rgba(239,68,68,.3)}
+    .header-status.admin{color:var(--accent2);border-color:rgba(34,197,94,.3)}
+    .header-status.viewer{color:var(--muted);border-color:var(--border)}
+
+    .tab-row{display:flex;gap:3px;margin-bottom:22px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px;width:fit-content}
+    .tab{padding:7px 18px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;color:var(--muted);background:transparent;transition:all .15s;font-family:var(--sans)}
+    .tab.active{background:var(--surface2);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+    .panel{display:none}.panel.active{display:block}
+
+    .btn{padding:9px 18px;border-radius:8px;border:none;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+    .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#3a7ae8}
+    .btn-success{background:var(--accent2);color:#0a0c14}.btn-success:hover{background:#16a34a;color:#fff}
+    .btn-warn{background:var(--warn);color:#0a0c14}.btn-warn:hover{background:#d97706;color:#fff}
+    .btn-danger{background:transparent;border:1px solid var(--danger);color:var(--danger)}.btn-danger:hover{background:var(--danger);color:#fff}
+    .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+    .btn-sm{padding:5px 12px;font-size:11px;border-radius:6px;font-family:var(--sans);cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .15s}
+    .btn-sm:hover{border-color:var(--accent);color:var(--accent)}
+    .btn-sm.danger:hover{border-color:var(--danger);color:var(--danger)}
+    .btn-sm.success:hover{border-color:var(--accent2);color:var(--accent2)}
+
+    .badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;font-family:var(--mono);white-space:nowrap}
+    .badge-in{background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.25)}
+    .badge-out{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25)}
+    .badge-pending{background:rgba(168,85,247,.12);color:#c084fc;border:1px solid rgba(168,85,247,.25)}
+    .badge-new{background:rgba(79,142,247,.12);color:#93c5fd;border:1px solid rgba(79,142,247,.25)}
+    .badge-qty{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25);font-size:9px}
+
+    /* DASHBOARD */
+    .dash-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+    .dash-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;transition:transform .15s,border-color .15s}
+    .dash-stat:hover{transform:translateY(-2px);border-color:var(--border2)}
+    .dash-stat::before{content:'';position:absolute;bottom:0;left:0;right:0;height:3px}
+    .dash-stat.blue::before{background:var(--accent)}.dash-stat.green::before{background:var(--accent2)}
+    .dash-stat.red::before{background:var(--danger)}.dash-stat.amber::before{background:var(--warn)}
+    .dash-stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+    .dash-stat-val{font-family:var(--mono);font-size:34px;font-weight:700;line-height:1}
+    .dash-stat.blue .dash-stat-val{color:var(--accent)}.dash-stat.green .dash-stat-val{color:var(--accent2)}
+    .dash-stat.red .dash-stat-val{color:var(--danger)}.dash-stat.amber .dash-stat-val{color:var(--warn)}
+    .dash-stat-sub{font-size:11px;color:var(--muted2);margin-top:6px}
+    .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+    .dash-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+    .dash-card-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+    .progress-bar-wrap{margin-bottom:10px}
+    .progress-label{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px}
+    .progress-label span:first-child{color:var(--muted)}
+    .progress-bar{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+    .progress-fill{height:100%;border-radius:3px;transition:width .6s ease}
+
+    /* SCANNER */
+    .mode-row{display:flex;gap:6px;margin-bottom:16px}
+    .mode-btn{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;text-align:center}
+    .mode-btn.checkin.active{border-color:var(--accent2);background:rgba(34,197,94,.1);color:var(--accent2)}
+    .mode-btn.checkout.active{border-color:var(--danger);background:rgba(239,68,68,.1);color:var(--danger)}
+    .scanner-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:16px}
+    .scanner-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);animation:pulse 2s infinite;flex-shrink:0}
+    .dot.looking{background:var(--warn);animation:blink .5s linear infinite}.dot.error{background:var(--danger);animation:none}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}@keyframes blink{0%,100%{opacity:1}50%{opacity:.1}}
+    .scanner-body{padding:20px}
+    .cam-area{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px}
+    .cam-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+    .btn-cam{padding:8px 16px;border-radius:7px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+    .btn-cam:hover{background:var(--accent);color:#fff}.btn-cam.active{background:var(--danger);border-color:var(--danger);color:#fff}
+    #camera-preview{width:100%;border-radius:6px;overflow:hidden;display:none;margin-top:10px}
+    .input-row{display:flex;gap:8px}
+    .barcode-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;transition:border .2s}
+    .barcode-input:focus{border-color:var(--accent)}.barcode-input::placeholder{color:var(--muted2)}
+
+    .batch-queue{background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-top:14px}
+    .batch-queue-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    .batch-queue-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;gap:8px}
+    .batch-count{background:var(--accent);color:#fff;border-radius:20px;padding:2px 8px;font-family:var(--mono);font-size:10px}
+    .batch-count.green{background:var(--accent2);color:#0a0c14}.batch-count.red{background:var(--danger)}
+    .batch-items{max-height:420px;overflow-y:auto}
+    .batch-item-remove{padding:3px 8px;border-radius:4px;border:1px solid transparent;background:transparent;color:var(--muted2);cursor:pointer;font-size:11px;transition:all .15s}
+    .batch-item-remove:hover{border-color:var(--danger);color:var(--danger)}
+    .batch-footer{padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .batch-footer-left{font-size:12px;color:var(--muted)}
+    .batch-actions{display:flex;gap:8px}
+
+    .result-card{margin-top:14px;display:none}.result-card.show{display:block}
+    .rc-body{border-radius:9px;padding:16px;border:1px solid}
+    .rc-success{background:rgba(34,197,94,.06);border-color:rgba(34,197,94,.3)}
+    .rc-danger{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.3)}
+    .rc-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+    .rc-meta{font-size:12px;color:var(--muted);line-height:1.6}
+    .scan-note{background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.25);border-radius:7px;padding:8px 12px;font-size:11px;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:7px}
+
+    .autocomplete-wrap{position:relative;flex:1;min-width:180px}
+    .autocomplete-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;transition:border .2s}
+    .autocomplete-input:focus{border-color:var(--accent)}
+    .autocomplete-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:8px;z-index:200;max-height:220px;overflow-y:auto;display:none;box-shadow:0 8px 32px rgba(0,0,0,.5);margin-top:3px}
+    .autocomplete-dropdown.open{display:block}
+    .autocomplete-item{padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s}
+    .autocomplete-item:last-child{border-bottom:none}
+    .autocomplete-item:hover,.autocomplete-item.selected{background:rgba(79,142,247,.12);color:var(--accent)}
+    .autocomplete-item .ac-pn{font-family:var(--mono);font-size:11px;color:var(--accent)}
+    .autocomplete-item .ac-name{font-size:10px;color:var(--muted);margin-top:2px}
+
+    .form-select-dark{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;cursor:pointer;transition:border .2s}
+    .form-select-dark:focus{border-color:var(--accent)}
+    .form-select-dark option{background:var(--surface2)}
+
+    .add-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px}
+    .add-form-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+    .form-group label{display:block;font-size:10px;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.8px}
+    .form-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none}
+    .form-input:focus{border-color:var(--accent)}
+
+    .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;overflow-x:auto}
+    .tool-table{width:100%;border-collapse:collapse;font-size:12px}
+    .tool-table th{text-align:left;padding:9px 14px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.8px;white-space:nowrap}
+    .tool-table td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+    .tool-table tr:last-child td{border-bottom:none}
+    .tool-table tr:hover td{background:rgba(79,142,247,.03)}
+    .scan-flash{animation:flash .5s ease-out}
+    @keyframes flash{0%{background:rgba(79,142,247,.15)}100%{background:transparent}}
+    .empty{text-align:center;padding:36px;color:var(--muted);font-size:13px}
+
+    .search-input{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none}
+    .search-input:focus{border-color:var(--accent)}.search-input::placeholder{color:var(--muted2)}
+    .filter-row{display:flex;gap:4px;flex-wrap:wrap}
+    .filter-btn{padding:5px 12px;border-radius:20px;font-size:11px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;font-family:var(--sans);font-weight:600}
+    .filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    .filter-btn.f-in.active{background:var(--accent2);border-color:var(--accent2);color:#0a0c14}
+    .filter-btn.f-out.active{background:var(--danger);border-color:var(--danger);color:#fff}
+    .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .section-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px}
+
+    .sn-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:4px;padding:2px 7px;font-family:var(--mono);font-size:10px;color:var(--warn);margin:1px}
+
+    .log-list{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;max-height:500px;overflow-y:auto}
+    .log-item{display:flex;align-items:flex-start;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px}
+    .log-item:last-child{border-bottom:none}
+    .log-time{font-family:var(--mono);color:var(--muted);min-width:80px;flex-shrink:0}
+    .log-code{font-family:var(--mono);color:var(--accent);min-width:110px;flex-shrink:0}
+
+    /* DATABASE TAB */
+    .db-zone{border:2px dashed var(--border2);border-radius:var(--radius);padding:32px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:16px}
+    .db-zone:hover,.db-zone.drag-over{border-color:var(--accent);background:rgba(79,142,247,.05)}
+    .db-zone-icon{font-size:36px;margin-bottom:10px}
+    .db-zone-title{font-size:15px;font-weight:700;margin-bottom:5px}
+    .db-zone-sub{font-size:12px;color:var(--muted);line-height:1.6}
+    .db-preview{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+    .db-preview-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    .db-preview-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+    .db-stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+    .db-stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+    .db-stat-val{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--accent)}
+    .db-stat-label{font-size:10px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.8px}
+    .db-format-note{background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.25);border-radius:8px;padding:14px;font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:16px}
+    .db-format-note strong{color:var(--accent)}
+
+    .db-manual-form{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+    .db-manual-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+    .db-manual-title span{background:rgba(79,142,247,.15);color:var(--accent);border-radius:4px;padding:2px 8px;font-size:9px}
+    .db-manual-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end}
+    .db-manual-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;display:block}
+    .db-manual-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;transition:border .2s}
+    .db-manual-input:focus{border-color:var(--accent)}
+    .db-manual-input::placeholder{color:var(--muted2)}
+
+    .upload-history{background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;overflow:hidden}
+    .upload-history-head{padding:10px 16px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;justify-content:space-between}
+    .upload-history-item{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);font-size:12px}
+    .upload-history-item:last-child{border-bottom:none}
+    .upload-history-file{font-family:var(--mono);font-size:11px;color:var(--accent);flex:1}
+    .upload-history-meta{font-size:10px;color:var(--muted2)}
+
+    .brand-detail-table{width:100%;border-collapse:collapse;font-size:11px}
+    .brand-detail-table th{text-align:left;padding:6px 12px;color:var(--muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border)}
+    .brand-detail-table td{padding:6px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+    .brand-detail-table tr:last-child td{border-bottom:none}
+    .brand-detail-table tr:hover td{background:rgba(79,142,247,.03)}
+
+    .brand-section{border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden}
+    .brand-section-head{padding:11px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;transition:background .15s}
+    .brand-section-head:hover{background:rgba(79,142,247,.05)}
+    .brand-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+    .brand-section-name{font-weight:700;font-size:13px;flex:1}
+    .brand-section-meta{font-size:11px;color:var(--muted);font-family:var(--mono)}
+    .brand-chevron{transition:transform .2s;color:var(--muted)}
+    .brand-section.open .brand-chevron{transform:rotate(90deg)}
+    .brand-section-body{display:none;border-top:1px solid var(--border)}
+    .brand-section.open .brand-section-body{display:block}
+
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+    .modal-overlay.show{display:flex}
+    .modal{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:28px;width:min(620px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+    .modal-title{font-family:var(--mono);font-size:16px;margin-bottom:6px}
+    .modal-sub{font-size:12px;color:var(--muted);margin-bottom:20px}
+    .modal-section{margin-bottom:18px}
+    .modal-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+    .modal-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;transition:border .2s}
+    .modal-input:focus{border-color:var(--accent)}.modal-input::placeholder{color:var(--muted2)}
+    .modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+
+    .toast{position:fixed;bottom:24px;right:24px;z-index:999;padding:11px 18px;border-radius:9px;font-size:12px;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.5);display:flex;align-items:center;gap:8px;transform:translateY(20px);opacity:0;transition:all .25s;pointer-events:none;max-width:420px}
+    .toast.show{transform:translateY(0);opacity:1}
+    .toast-success{background:#14532d;border:1px solid rgba(34,197,94,.4);color:#4ade80}
+    .toast-info{background:#1e3a5f;border:1px solid rgba(79,142,247,.4);color:#93c5fd}
+    .toast-warn{background:#451a03;border:1px solid rgba(245,158,11,.4);color:#fbbf24}
+    .toast-error{background:#450a0a;border:1px solid rgba(239,68,68,.4);color:#fca5a5}
+
+    /* Login modal styling */
+    .login-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-family:var(--sans);font-size:14px;outline:none;transition:border .2s}
+    .login-input:focus{border-color:var(--accent)}.login-input::placeholder{color:var(--muted2)}
+    .viewer-banner{background:rgba(79,142,247,.06);border:1px solid rgba(79,142,247,.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+    body.is-admin .viewer-banner{display:none}
+
+    /* Hides admin-only UI for viewers */
+    body:not(.is-admin) [data-admin-only]{display:none !important}
+
+    /* Setup banner — shown when Supabase config is missing */
+    .setup-banner{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:18px 22px;margin-bottom:20px;color:var(--text);font-size:13px;line-height:1.7}
+    .setup-banner h3{color:var(--warn);font-family:var(--mono);font-size:14px;margin-bottom:8px}
+    .setup-banner code{background:var(--surface2);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:12px;color:var(--accent)}
+
+    @media(max-width:900px){.dash-stats{grid-template-columns:repeat(2,1fr)}.dash-grid{grid-template-columns:1fr}}
+    @media(max-width:700px){.db-manual-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:480px){.dash-stats{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="header-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round">
+        <rect x="3" y="4" width="2.5" height="16"/><rect x="7.5" y="4" width="1.2" height="16"/>
+        <rect x="10.8" y="4" width="2.5" height="16"/><rect x="15.5" y="4" width="1.2" height="16"/>
+        <rect x="18.8" y="4" width="1" height="16"/>
+      </svg>
+    </div>
+    <div>
+      <h1>WarehouseTracker</h1>
+      <p>Serial Number Tracking · Supabase</p>
+    </div>
+    <div class="header-right">
+      <span class="header-status" id="db-status-pill">● Connecting…</span>
+      <span class="header-status viewer" id="user-pill">● Viewer Mode</span>
+      <button class="btn btn-ghost" id="auth-btn" onclick="openLoginModal()" style="font-size:12px;padding:7px 14px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        <span id="auth-btn-label">Admin Login</span>
+      </button>
+      <button class="btn btn-ghost" onclick="exportToExcel()" style="font-size:12px;padding:7px 14px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+    </div>
+  </div>
+
+  <div id="setup-banner" class="setup-banner" style="display:none"></div>
+
+  <div class="tab-row">
+    <button class="tab active" onclick="switchTab('dashboard',this)">📊 Dashboard</button>
+    <button class="tab" data-admin-only onclick="switchTab('scanner',this)">🔍 Scanner</button>
+    <button class="tab" onclick="switchTab('inventory',this)">📦 Inventory</button>
+    <button class="tab" data-admin-only onclick="switchTab('log',this)">📋 Scan Log</button>
+    <button class="tab" data-admin-only onclick="switchTab('database',this)">🗄️ Database</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="tab-dashboard" class="panel active">
+    <div class="dash-stats">
+      <div class="dash-stat blue"><div class="dash-stat-label">Total Part Numbers</div><div class="dash-stat-val" id="d-total">0</div><div class="dash-stat-sub">unique part numbers</div></div>
+      <div class="dash-stat green"><div class="dash-stat-label">Available</div><div class="dash-stat-val" id="d-in">0</div><div class="dash-stat-sub">units ready to use</div></div>
+      <div class="dash-stat red"><div class="dash-stat-label">Checked Out</div><div class="dash-stat-val" id="d-out">0</div><div class="dash-stat-sub">units in use</div></div>
+      <div class="dash-stat amber"><div class="dash-stat-label">Total Units</div><div class="dash-stat-val" id="d-units">0</div><div class="dash-stat-sub">serial numbers tracked</div></div>
+    </div>
+    <div class="dash-grid">
+      <div class="dash-card">
+        <div class="dash-card-title"><span>Inventory Status (by serial)</span></div>
+        <div id="dash-category-bars"></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-title"><span>By Brand</span></div>
+        <div id="dash-brand-bars"></div>
+      </div>
+    </div>
+    <div class="dash-card" style="margin-bottom:16px">
+      <div class="dash-card-title"><span>Currently Checked Out</span><span id="d-out-count" style="font-family:var(--mono);font-size:11px;color:var(--danger)"></span></div>
+      <div style="overflow-x:auto">
+        <table class="tool-table">
+          <thead><tr><th>Serial Number</th><th>Part Number</th><th>Component</th><th>Brand</th><th>Checked Out By</th><th>Time</th></tr></thead>
+          <tbody id="dash-out-tbody"><tr><td colspan="6"><div class="empty">No items checked out</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="dash-card" style="margin-bottom:0">
+      <div class="dash-card-title"><span>By Category</span></div>
+      <table class="tool-table">
+        <thead><tr><th>Category</th><th>Part Numbers</th><th>Total Units</th><th>Available</th><th>Checked Out</th></tr></thead>
+        <tbody id="dash-cat-tbody"><tr><td colspan="5"><div class="empty">No data</div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SCANNER -->
+  <div id="tab-scanner" class="panel">
+    <div class="mode-row">
+      <button class="mode-btn checkin active" id="mode-checkin" onclick="setMode('checkin')">✓ Check-In Mode</button>
+      <button class="mode-btn checkout" id="mode-checkout" onclick="setMode('checkout')">↑ Check-Out Mode</button>
+    </div>
+    <div class="scanner-card">
+      <div class="scanner-head">
+        <div class="dot" id="status-dot"></div>
+        <span id="scanner-status" style="font-size:12px;font-family:var(--mono);color:var(--muted)">Ready — scan serial numbers to add to batch</span>
+        <span id="mode-badge" style="margin-left:auto" class="badge badge-new">CHECK-IN</span>
+      </div>
+      <div class="scanner-body">
+        <div class="scan-note" id="scan-mode-note">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="scan-note-text"><strong>Check-In:</strong> Scan serial numbers. Assign brand, part number & shelf, then confirm.</span>
+        </div>
+        <div class="cam-area">
+          <div class="cam-label">
+            <span>Camera Scanner</span>
+            <span id="cam-hint" style="font-size:11px;color:var(--muted)">Point at serial number barcode</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn-cam" id="cam-toggle-btn" onclick="toggleCamera()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Start Camera
+            </button>
+            <span style="font-size:11px;color:var(--muted2)">or type serial number below and press Enter</span>
+          </div>
+          <div id="camera-preview"></div>
+        </div>
+        <div class="input-row">
+          <input class="barcode-input" id="barcode-in" placeholder="Scan or type serial number, press Enter to queue…" onkeydown="if(event.key==='Enter')addToBatch()" />
+          <button class="btn btn-primary" onclick="addToBatch()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add to Queue
+          </button>
+        </div>
+        <div class="batch-queue" id="batch-queue" style="display:none">
+          <div class="batch-queue-head">
+            <div class="batch-queue-title">
+              <span id="batch-queue-label">Serial Number Queue</span>
+              <span class="batch-count" id="batch-count-badge">0</span>
+            </div>
+            <button class="btn-sm" onclick="clearBatch()">Clear All</button>
+          </div>
+          <div class="batch-items" id="batch-items-list"></div>
+          <div class="batch-footer">
+            <div class="batch-footer-left" id="batch-footer-info">Scan serial numbers or confirm below</div>
+            <div class="batch-actions">
+              <button class="btn btn-ghost" onclick="clearBatch()" style="font-size:12px;padding:7px 14px">Cancel</button>
+              <button class="btn btn-success" id="batch-confirm-btn" onclick="confirmBatch()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span id="batch-confirm-label">Confirm Check-In (0)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="result-card" id="result-card"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVENTORY -->
+  <div id="tab-inventory" class="panel">
+    <div class="viewer-banner">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span>You're viewing inventory in <strong style="color:var(--accent)">read-only mode</strong>. Log in as an admin to make changes.</span>
+    </div>
+    <div class="add-form" data-admin-only>
+      <div class="add-form-title">Add Component Manually</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end">
+        <div class="form-group">
+          <label>Brand</label>
+          <select class="form-input" id="new-brand" onchange="populateNewPN()" style="cursor:pointer">
+            <option value="">— Select Brand —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Part Number</label>
+          <div class="autocomplete-wrap" style="width:100%">
+            <input class="autocomplete-input form-input" id="new-pn-input" placeholder="Type or select..." autocomplete="off"
+              oninput="filterNewPN(this.value)" onfocus="showNewPNDropdown()" onblur="hideNewPNDropdown()" />
+            <div class="autocomplete-dropdown" id="new-pn-dropdown"></div>
+          </div>
+        </div>
+        <div class="form-group"><label>Serial Number</label><input class="form-input" id="new-serial" placeholder="e.g. SN-12345678" /></div>
+        <div class="form-group">
+          <label>Shelf</label>
+          <select class="form-input" id="new-shelf" style="cursor:pointer">
+            <option value="">— Shelf —</option>
+            <option>Shelf A</option><option>Shelf B</option><option>Shelf C</option><option>Shelf D</option><option>Shelf E</option>
+            <option>Shelf F</option><option>Shelf G</option><option>Shelf H</option><option>Shelf I</option><option>Shelf J</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="addComponentManual()">+ Add</button>
+      </div>
+    </div>
+    <div class="section-head">
+      <div class="section-title">All Components</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input class="search-input" id="search-inp" placeholder="Search…" oninput="renderTable()" style="width:180px;padding:6px 12px;font-size:12px" />
+        <div class="filter-row">
+          <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+          <button class="filter-btn f-in" onclick="setFilter('in',this)">Available</button>
+          <button class="filter-btn f-out" onclick="setFilter('out',this)">Out</button>
+        </div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="tool-table">
+        <thead><tr>
+          <th>Part Number</th><th>Serial Number(s)</th><th>Component Name</th>
+          <th>Category</th><th>Shelf</th><th>Quantity</th>
+          <th>Checked-Out By</th><th>Last Scan</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="tool-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div id="tab-log" class="panel">
+    <div class="section-head">
+      <div class="section-title">Scan History</div>
+      <button class="btn btn-danger" onclick="clearLog()" style="padding:6px 14px;font-size:12px">Clear Log</button>
+    </div>
+    <div class="log-list" id="log-list"><div class="empty">No scans yet</div></div>
+  </div>
+
+  <!-- DATABASE -->
+  <div id="tab-database" class="panel">
+    <div style="margin-bottom:16px">
+      <div class="section-title" style="margin-bottom:4px">Product Database</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Import product catalogs from Excel files or add entries manually. Data is merged into Supabase.</div>
+    </div>
+
+    <div class="db-manual-form">
+      <div class="db-manual-title">✏️ Add Entry Manually <span>NEW</span></div>
+      <div class="db-manual-grid">
+        <div>
+          <label class="db-manual-label">Brand Name</label>
+          <input class="db-manual-input" id="db-m-brand" placeholder="e.g. Siemens" list="db-brand-datalist" autocomplete="off" />
+          <datalist id="db-brand-datalist"></datalist>
+        </div>
+        <div>
+          <label class="db-manual-label">Part Number</label>
+          <input class="db-manual-input" id="db-m-pn" placeholder="e.g. 3RV2011-1AA10" />
+        </div>
+        <div>
+          <label class="db-manual-label">Product Name</label>
+          <input class="db-manual-input" id="db-m-name" placeholder="e.g. Circuit Breaker 1.1A" />
+        </div>
+        <div>
+          <label class="db-manual-label">Category</label>
+          <input class="db-manual-input" id="db-m-cat" placeholder="e.g. Protection" list="db-cat-datalist" autocomplete="off" />
+          <datalist id="db-cat-datalist"></datalist>
+        </div>
+        <button class="btn btn-primary" onclick="addDBManualEntry()" style="height:38px;white-space:nowrap">+ Add to DB</button>
+      </div>
+      <div id="db-manual-feedback" style="margin-top:10px;font-size:12px;display:none"></div>
+    </div>
+
+    <div class="db-format-note">
+      <strong>Excel format</strong> — required columns: <strong>Brand</strong> · <strong>Part Number</strong> · <strong>Name</strong> · <strong>Category</strong><br>
+      ✦ Multi-sheet supported — all sheets merged automatically.<br>
+      ✦ Same brand + same part number = updated entry. New entries are added.<br>
+      ✦ If a sheet has no Brand column, the <strong>sheet name</strong> is used as the brand.
+    </div>
+
+    <div class="db-zone" id="db-drop-zone" onclick="document.getElementById('db-file-input').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="handleDBDrop(event)">
+      <div class="db-zone-icon">📂</div>
+      <div class="db-zone-title">Click to import or drag &amp; drop</div>
+      <div class="db-zone-sub">Supports .xlsx, .xls, .csv — merges with existing database</div>
+      <input type="file" id="db-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleDBFile(this.files[0]);this.value=''" />
+    </div>
+
+    <div id="db-status" style="margin-bottom:12px;display:none"></div>
+
+    <div id="db-loaded-info" style="display:none">
+      <div class="db-stats-row">
+        <div class="db-stat"><div class="db-stat-val" id="db-stat-brands">0</div><div class="db-stat-label">Brands</div></div>
+        <div class="db-stat"><div class="db-stat-val" id="db-stat-parts">0</div><div class="db-stat-label">Part Numbers</div></div>
+        <div class="db-stat"><div class="db-stat-val" id="db-stat-cats">0</div><div class="db-stat-label">Categories</div></div>
+      </div>
+
+      <div class="upload-history" id="upload-history-wrap" style="display:none">
+        <div class="upload-history-head">
+          <span>Upload History</span>
+          <span id="upload-history-count" style="font-family:var(--mono);font-size:10px;color:var(--muted2)"></span>
+        </div>
+        <div id="upload-history-list"></div>
+      </div>
+
+      <div class="db-preview">
+        <div class="db-preview-head">
+          <div class="db-preview-title">Loaded Brands &amp; Products</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="db-search" placeholder="Search…" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-size:11px;outline:none;width:220px" oninput="renderDBTab()" />
+            <button class="btn btn-danger" onclick="clearDatabase()" style="padding:5px 12px;font-size:11px">Clear All</button>
+          </div>
+        </div>
+        <div id="db-brand-list" style="padding:14px 18px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+<div class="modal-overlay" id="checkout-confirm-modal">
+  <div class="modal">
+    <div class="modal-title">Confirm Check-Out</div>
+    <div class="modal-sub">Provide the person checking out these items</div>
+    <div id="co-items-summary" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;max-height:200px;overflow-y:auto"></div>
+    <div class="modal-section">
+      <div class="modal-label">Name / Employee ID</div>
+      <input class="modal-input" id="co-name" placeholder="Full name or employee ID…" />
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">Department</div>
+      <input class="modal-input" id="co-dept" placeholder="Department or team…" />
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">SO Number / Project Name</div>
+      <input class="modal-input" id="co-so" placeholder="e.g. SO-12345…" />
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('checkout-confirm-modal')">Cancel</button>
+      <button class="btn btn-warn" onclick="finalizeCheckout()">Confirm Check-Out</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="checkin-assign-modal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-title">Assign &amp; Check-In</div>
+    <div class="modal-sub">Assign brand, part number, and shelf to each scanned serial number.</div>
+    <div id="assign-sn-list" style="display:flex;flex-direction:column;gap:10px;max-height:460px;overflow-y:auto;margin-bottom:16px"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('checkin-assign-modal')">Cancel</button>
+      <button class="btn btn-success" onclick="finalizeCheckin()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Confirm Check-In
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="login-modal">
+  <div class="modal" style="max-width:420px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+      <div style="width:36px;height:36px;background:linear-gradient(135deg,#4f8ef7,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <div>
+        <div class="modal-title" style="margin-bottom:2px">Admin Login</div>
+        <div class="modal-sub" style="margin-bottom:0">Sign in to manage inventory</div>
+      </div>
+    </div>
+    <div style="margin-top:18px"></div>
+    <div class="modal-section">
+      <div class="modal-label">Email</div>
+      <input class="login-input" id="login-email" placeholder="admin@example.com" autocomplete="username" type="email"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()" />
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">Password</div>
+      <input class="login-input" id="login-password" type="password" placeholder="Password" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')submitLogin()" />
+    </div>
+    <div id="login-error" style="display:none;color:var(--danger);font-size:12px;margin-bottom:12px;padding:8px 12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:7px"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('login-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitLogin()" id="login-submit-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Sign in
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+// ═══════════════════════════════════════════════════════════
+// SUPABASE CLIENT
+// ═══════════════════════════════════════════════════════════
+const URL = window.SUPABASE_URL || '';
+const KEY = window.SUPABASE_ANON_KEY || '';
+const isConfigured = URL && KEY && !URL.includes('YOUR-PROJECT-REF') && !KEY.includes('YOUR-ANON-KEY');
+
+const sb = isConfigured ? createClient(URL, KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+}) : null;
+
+window.sb = sb; // expose for inline handlers
+
+if (!isConfigured) {
+  document.getElementById('setup-banner').style.display = 'block';
+  document.getElementById('setup-banner').innerHTML = `
+    <h3>⚠ Supabase not configured</h3>
+    Edit <code>config.js</code> and replace the two placeholder values with your project URL and anon key
+    (Supabase dashboard → Project Settings → API).<br>
+    Until then, this page is static — no data will load.
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let DB = {};                  // { brand: [{pn, name, category, sources}] }
+let inventory = [];           // [{ pn, name, brand, category, shelf, lastScan, serials:[{sn, status, checkedOutBy, ...}] }]
+let logs = [];
+let uploadHistory = [];
+let currentUser = { authenticated: false, email: null, role: 'viewer' };
+
+let activeFilter = 'all';
+let scanMode = 'checkin';
+let batchQueue = [];
+let checkoutBatch = [];
+
+let html5QrCode = null, cameraRunning = false, lastScanned = '', lastScannedTime = 0;
+
+const SHELVES = ['Shelf A','Shelf B','Shelf C','Shelf D','Shelf E','Shelf F','Shelf G','Shelf H','Shelf I','Shelf J'];
+const BRAND_COLORS = ['#4f8ef7','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#f97316','#84cc16','#ec4899','#14b8a6'];
+
+// ═══════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════
+function nowStr() {
+  return new Date().toLocaleString('en-PH',{month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+}
+function getStatusLabel(s){return s==='in'?'Available':s==='out'?'Checked Out':'Not Checked-In';}
+function getStatusBadge(s){return s==='in'?'badge-in':s==='out'?'badge-out':'badge-pending';}
+function showToast(msg, type='success', ms=3200) {
+  const t = document.getElementById('toast');
+  t.className = `toast toast-${type} show`;
+  t.innerHTML = msg;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), ms);
+}
+function setDBStatus(online) {
+  const pill = document.getElementById('db-status-pill');
+  pill.textContent = online ? '● Supabase Connected' : '● Offline';
+  pill.className = 'header-status ' + (online ? 'online' : 'offline');
+}
+function setDot(state, msg) {
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('scanner-status');
+  dot.className = 'dot';
+  if (state==='looking') dot.classList.add('looking');
+  if (state==='error') dot.classList.add('error');
+  if (txt) txt.textContent = msg;
+}
+function flashRow(pn) {
+  setTimeout(()=>{
+    const row = document.querySelector(`tr[data-pn="${CSS.escape(pn)}"]`);
+    if (row) { row.classList.add('scan-flash'); setTimeout(()=>row.classList.remove('scan-flash'),600); }
+  },80);
+}
+window.closeModal = id => document.getElementById(id).classList.remove('show');
+
+// ═══════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════
+async function refreshUser() {
+  if (!sb) { applyRoleUI(); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (session && session.user) {
+    const role = session.user.app_metadata?.role || 'viewer';
+    currentUser = { authenticated: true, email: session.user.email, role };
+  } else {
+    currentUser = { authenticated: false, email: null, role: 'viewer' };
+  }
+  applyRoleUI();
+}
+
+function applyRoleUI() {
+  const isAdmin = currentUser.role === 'admin';
+  document.body.classList.toggle('is-admin', isAdmin);
+  const userPill = document.getElementById('user-pill');
+  const authBtn = document.getElementById('auth-btn');
+  const authBtnLabel = document.getElementById('auth-btn-label');
+  if (isAdmin) {
+    userPill.textContent = `● Admin: ${currentUser.email}`;
+    userPill.className = 'header-status admin';
+    authBtnLabel.textContent = 'Logout';
+    authBtn.onclick = doLogout;
+  } else {
+    userPill.textContent = '● Viewer Mode';
+    userPill.className = 'header-status viewer';
+    authBtnLabel.textContent = 'Admin Login';
+    authBtn.onclick = openLoginModal;
+  }
+  // Don't leave a viewer parked on a hidden tab
+  const activePanel = document.querySelector('.panel.active');
+  const activeId = activePanel ? activePanel.id.replace('tab-','') : 'dashboard';
+  if (!isAdmin && ['scanner','log','database'].includes(activeId)) {
+    switchTab('dashboard');
+  }
+}
+
+window.openLoginModal = function() {
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-modal').classList.add('show');
+  setTimeout(() => document.getElementById('login-email').focus(), 100);
+};
+
+window.submitLogin = async function() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-submit-btn');
+  if (!email || !password) {
+    errEl.textContent = '⚠ Both fields are required.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!sb) {
+    errEl.textContent = '⚠ Supabase not configured. Edit config.js first.';
+    errEl.style.display = 'block';
+    return;
+  }
+  btn.disabled = true; btn.style.opacity = 0.6;
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      errEl.textContent = '⚠ ' + error.message;
+      errEl.style.display = 'block';
+      return;
+    }
+    await refreshUser();
+    if (currentUser.role !== 'admin') {
+      // Successfully signed in but not an admin
+      await sb.auth.signOut();
+      await refreshUser();
+      errEl.textContent = '⚠ This account is not an admin. Contact your administrator.';
+      errEl.style.display = 'block';
+      return;
+    }
+    closeModal('login-modal');
+    showToast(`✓ Welcome, ${currentUser.email}`, 'success');
+    await loadAll();
+  } catch (e) {
+    errEl.textContent = '⚠ ' + e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.style.opacity = 1;
+  }
+};
+
+async function doLogout() {
+  if (!confirm('Log out?')) return;
+  await sb.auth.signOut();
+  await refreshUser();
+  showToast('Logged out', 'info');
+  await loadAll();
+}
+
+// ═══════════════════════════════════════════════════════════
+// LOAD ALL — fetch everything from Supabase and rebuild state
+// ═══════════════════════════════════════════════════════════
+async function loadAll() {
+  if (!sb) return false;
+  try {
+    // Catalog
+    const { data: products, error: pErr } = await sb
+      .from('products')
+      .select('brand, part_number, name, category, sources')
+      .order('brand').order('part_number');
+    if (pErr) throw pErr;
+
+    DB = {};
+    for (const r of products || []) {
+      if (!DB[r.brand]) DB[r.brand] = [];
+      const sources = Array.isArray(r.sources) ? r.sources : [];
+      DB[r.brand].push({
+        pn: r.part_number,
+        name: r.name,
+        category: r.category,
+        sources,
+        source: sources[0] || 'manual'
+      });
+    }
+
+    // Inventory + product join
+    const { data: invRows, error: iErr } = await sb
+      .from('inventory_items')
+      .select(`serial_number, shelf, status, checked_out_by, checked_out_dept, so_number, last_scan, created_at,
+               products(brand, part_number, name, category)`)
+      .order('created_at', { ascending: true });
+    if (iErr) throw iErr;
+
+    const map = {};
+    for (const r of invRows || []) {
+      const p = r.products || {};
+      const key = p.brand + '||' + p.part_number;
+      if (!map[key]) {
+        map[key] = {
+          pn: p.part_number, name: p.name, brand: p.brand, category: p.category,
+          shelf: r.shelf || '', lastScan: r.last_scan || '',
+          serials: []
+        };
+      }
+      if (r.shelf && !map[key].shelf) map[key].shelf = r.shelf;
+      map[key].serials.push({
+        sn: r.serial_number,
+        status: r.status,
+        checkedOutBy: r.checked_out_by || '',
+        checkedOutDept: r.checked_out_dept || '',
+        time: r.last_scan || ''
+      });
+      if ((r.last_scan || '') > map[key].lastScan) map[key].lastScan = r.last_scan;
+    }
+    inventory = Object.values(map);
+
+    // Logs and history (only readable by admins; viewers get empty arrays)
+    logs = [];
+    uploadHistory = [];
+    if (currentUser.role === 'admin') {
+      const { data: logRows } = await sb
+        .from('scan_logs')
+        .select('log_time, code, message, log_type')
+        .order('id', { ascending: false })
+        .limit(300);
+      logs = (logRows || []).map(l => ({
+        time: l.log_time, code: l.code, msg: l.message, type: l.log_type
+      }));
+
+      const { data: histRows } = await sb
+        .from('upload_history')
+        .select('filename, sheets, sheet_names, added, updated_cnt, total, upload_time')
+        .order('id', { ascending: false })
+        .limit(20);
+      uploadHistory = (histRows || []).map(h => ({
+        filename: h.filename, sheets: h.sheets, sheetNames: h.sheet_names || [],
+        added: h.added, updated: h.updated_cnt, total: h.total, ts: h.upload_time
+      }));
+    }
+
+    setDBStatus(true);
+    renderAll();
+    refreshBrandSelect();
+    return true;
+  } catch (e) {
+    console.error('loadAll failed:', e);
+    setDBStatus(false);
+    showToast('⚠ ' + (e.message || 'Failed to load data'), 'error');
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+function getBrands() { return Object.keys(DB).sort(); }
+function getPartsForBrand(b) { return DB[b] || []; }
+function getPartInfo(b, pn) {
+  if (!b || !pn) return null;
+  return (DB[b]||[]).find(p=>p.pn===pn) || null;
+}
+function findInvRow(b, pn) { return inventory.find(r=>r.brand===b && r.pn===pn); }
+function findInvRowBySN(sn) { return inventory.find(r=>r.serials.some(s=>s.sn===sn)); }
+
+async function logAction(code, message, type='info') {
+  if (!sb || currentUser.role !== 'admin') return;
+  await sb.from('scan_logs').insert({ log_time: nowStr(), code, message, log_type: type });
+}
+
+// ═══════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════
+window.switchTab = function(name, btn) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else {
+    const tabs = ['dashboard','scanner','inventory','log','database'];
+    document.querySelectorAll('.tab')[tabs.indexOf(name)]?.classList.add('active');
+  }
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name==='dashboard') renderDashboard();
+  if (name==='inventory') { refreshBrandSelect(); renderTable(); }
+  if (name==='database') renderDBTab();
+};
+
+// ═══════════════════════════════════════════════════════════
+// DATABASE TAB — Excel upload
+// ═══════════════════════════════════════════════════════════
+window.handleDBDrop = function(e) {
+  e.preventDefault();
+  document.getElementById('db-drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleDBFile(file);
+};
+
+window.handleDBFile = function(file) {
+  if (!file) return;
+  const showStatus = (msg, isErr) => {
+    const el = document.getElementById('db-status');
+    el.style.display = 'block';
+    el.innerHTML = `<div style="padding:10px 14px;border-radius:8px;font-size:12px;${isErr?'background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);color:var(--danger)':'background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);color:var(--accent2)'}">${msg}</div>`;
+  };
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      const entries = [];
+      const sheetResults = [];
+      let anyPNFound = false;
+
+      wb.SheetNames.forEach(sheetName => {
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+        if (!rows.length) { sheetResults.push(`<em>${sheetName}</em>: empty, skipped`); return; }
+        const sample = rows[0];
+        const keys = Object.keys(sample);
+        const find = names => keys.find(k => names.some(n => k.toLowerCase().includes(n.toLowerCase()))) || '';
+        const colBrand = find(['brand','manufacturer','make']);
+        const colPN = find(['part number','part_number','partno','pn','sku','model','part']);
+        const colName = find(['name','description','product','component','item']);
+        const colCat = find(['category','cat','type','group','class']);
+        if (!colPN) { sheetResults.push(`<em>${sheetName}</em>: no Part Number column`); return; }
+        anyPNFound = true;
+        let n = 0;
+        rows.forEach(row => {
+          const brand = colBrand ? (row[colBrand]||sheetName).toString().trim() : sheetName.trim();
+          const pn = (row[colPN]||'').toString().trim();
+          if (!pn) return;
+          entries.push({
+            brand,
+            pn,
+            name: (row[colName]||pn).toString().trim(),
+            category: (row[colCat]||'Uncategorized').toString().trim(),
+            source: file.name
+          });
+          n++;
+        });
+        sheetResults.push(`<em>${sheetName}</em>: <strong>${n}</strong> rows`);
+      });
+
+      if (!anyPNFound) { showStatus('No valid Part Number column found.', true); return; }
+      showStatus(`Uploading ${entries.length} entries to Supabase…`, false);
+
+      // Bulk-upsert. We dedupe by (brand,pn) inside this batch first
+      // because Postgres upsert errors on duplicate keys within one statement.
+      const seen = new Set();
+      const dedup = entries.filter(e => {
+        const k = e.brand + '||' + e.pn;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+
+      // Fetch existing rows for these (brand, pn) pairs to compute added vs updated
+      const brandSet = [...new Set(dedup.map(e => e.brand))];
+      const { data: existing } = await sb
+        .from('products')
+        .select('brand, part_number, sources')
+        .in('brand', brandSet);
+      const existMap = {};
+      for (const r of existing || []) {
+        existMap[r.brand + '||' + r.part_number] = r.sources || [];
+      }
+
+      // Merge sources arrays
+      const upserts = dedup.map(e => {
+        const k = e.brand + '||' + e.pn;
+        const existingSources = existMap[k] || [];
+        const newSources = existingSources.includes(e.source)
+          ? existingSources
+          : [...existingSources, e.source];
+        return {
+          brand: e.brand,
+          part_number: e.pn,
+          name: e.name,
+          category: e.category,
+          sources: newSources
+        };
+      });
+
+      const { error: upErr } = await sb
+        .from('products')
+        .upsert(upserts, { onConflict: 'brand,part_number' });
+      if (upErr) throw upErr;
+
+      const added = dedup.filter(e => !(e.brand + '||' + e.pn in existMap)).length;
+      const updated = dedup.length - added;
+
+      // Record upload history
+      await sb.from('upload_history').insert({
+        filename: file.name,
+        sheets: wb.SheetNames.length,
+        sheet_names: wb.SheetNames,
+        added, updated_cnt: updated, total: entries.length,
+        upload_time: nowStr()
+      });
+
+      showStatus(`✓ Uploaded <strong>${file.name}</strong> — <strong style="color:var(--accent2)">${added} new</strong>, <strong style="color:var(--warn)">${updated} updated</strong><br>${sheetResults.join(' &nbsp;·&nbsp; ')}`, false);
+      showToast(`✓ ${file.name}: +${added} new, ${updated} updated`, 'success');
+      await loadAll();
+    } catch (err) {
+      showStatus('Error: ' + err.message, true);
+      showToast('⚠ ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+window.addDBManualEntry = async function() {
+  const brand = document.getElementById('db-m-brand').value.trim();
+  const pn = document.getElementById('db-m-pn').value.trim();
+  const name = document.getElementById('db-m-name').value.trim() || pn;
+  const category = document.getElementById('db-m-cat').value.trim() || 'Uncategorized';
+  const fb = document.getElementById('db-manual-feedback');
+  fb.style.display = 'block';
+  if (!brand || !pn) {
+    fb.innerHTML = '<span style="color:var(--danger)">⚠ Brand and part number are required.</span>';
+    return;
+  }
+  try {
+    // Check existing
+    const { data: existing } = await sb
+      .from('products')
+      .select('sources')
+      .eq('brand', brand).eq('part_number', pn).maybeSingle();
+    const existingSources = existing?.sources || [];
+    const newSources = existingSources.includes('manual') ? existingSources : [...existingSources, 'manual'];
+
+    const { error } = await sb.from('products').upsert({
+      brand, part_number: pn, name, category, sources: newSources
+    }, { onConflict: 'brand,part_number' });
+    if (error) throw error;
+
+    fb.innerHTML = existing
+      ? `<span style="color:var(--warn)">↺ Updated <strong>${pn}</strong> in <strong>${brand}</strong>.</span>`
+      : `<span style="color:var(--accent2)">✓ Added <strong>${pn}</strong> to <strong>${brand}</strong>.</span>`;
+    showToast(existing ? `↺ Updated ${pn}` : `✓ Added ${pn}`, existing ? 'info' : 'success');
+    document.getElementById('db-m-pn').value = '';
+    document.getElementById('db-m-name').value = '';
+    document.getElementById('db-m-cat').value = '';
+    await loadAll();
+    setTimeout(() => { fb.style.display = 'none'; }, 4000);
+  } catch (e) {
+    fb.innerHTML = `<span style="color:var(--danger)">⚠ ${e.message}</span>`;
+  }
+};
+
+window.removeDBEntry = async function(brand, pn) {
+  if (!confirm(`Remove ${pn} from ${brand}?`)) return;
+  const { error } = await sb.from('products')
+    .delete().eq('brand', brand).eq('part_number', pn);
+  if (error) { showToast('⚠ ' + error.message, 'error'); return; }
+  showToast(`Removed ${pn}`, 'warn');
+  await loadAll();
+};
+
+window.clearDatabase = async function() {
+  if (!confirm('Clear the entire product database? This will also remove all inventory items.')) return;
+  // Inventory FK cascades, so deleting products is enough. We use a dummy filter
+  // because Supabase requires `delete()` to have a filter.
+  const { error: e1 } = await sb.from('products').delete().gt('id', 0);
+  if (e1) { showToast('⚠ ' + e1.message, 'error'); return; }
+  await sb.from('upload_history').delete().gt('id', 0);
+  showToast('Database cleared', 'warn');
+  await loadAll();
+};
+
+window.toggleBrandSection = idx => document.getElementById('bsec-'+idx)?.classList.toggle('open');
+
+function renderDBTab() {
+  const brands = getBrands();
+  const loadedEl = document.getElementById('db-loaded-info');
+  updateDBDatalistHints();
+  if (!brands.length) { loadedEl.style.display = 'none'; return; }
+  loadedEl.style.display = 'block';
+  const totalParts = brands.reduce((acc, b) => acc + DB[b].length, 0);
+  const allCats = new Set();
+  brands.forEach(b => DB[b].forEach(p => allCats.add(p.category)));
+  document.getElementById('db-stat-brands').textContent = brands.length;
+  document.getElementById('db-stat-parts').textContent = totalParts;
+  document.getElementById('db-stat-cats').textContent = allCats.size;
+
+  const histWrap = document.getElementById('upload-history-wrap');
+  const histList = document.getElementById('upload-history-list');
+  if (uploadHistory.length) {
+    histWrap.style.display = 'block';
+    document.getElementById('upload-history-count').textContent = `${uploadHistory.length} file(s)`;
+    histList.innerHTML = uploadHistory.map(h => `
+      <div class="upload-history-item">
+        <span style="font-size:16px">📄</span>
+        <div style="flex:1">
+          <div class="upload-history-file">${h.filename}</div>
+          <div class="upload-history-meta">${h.sheets} sheet(s) · ${h.total} rows</div>
+        </div>
+        <span style="background:rgba(34,197,94,.12);color:#4ade80;border-radius:4px;padding:2px 7px;font-family:var(--mono);font-size:10px">+${h.added} new</span>
+        ${h.updated ? `<span style="background:rgba(245,158,11,.12);color:#fbbf24;border-radius:4px;padding:2px 7px;font-family:var(--mono);font-size:10px">${h.updated} updated</span>` : ''}
+        <span class="upload-history-meta">${h.ts||''}</span>
+      </div>`).join('');
+  } else {
+    histWrap.style.display = 'none';
+  }
+
+  const q = (document.getElementById('db-search')?.value || '').toLowerCase();
+  let html = '';
+  brands.forEach((brand, idx) => {
+    let parts = DB[brand];
+    if (q) {
+      parts = parts.filter(p =>
+        brand.toLowerCase().includes(q) ||
+        p.pn.toLowerCase().includes(q) ||
+        p.name.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q));
+      if (!parts.length && !brand.toLowerCase().includes(q)) return;
+    }
+    const color = BRAND_COLORS[idx % BRAND_COLORS.length];
+    html += `<div class="brand-section" id="bsec-${idx}">
+      <div class="brand-section-head" onclick="toggleBrandSection(${idx})">
+        <span class="brand-dot" style="background:${color}"></span>
+        <span class="brand-section-name">${brand}</span>
+        <span class="brand-section-meta">${parts.length} parts</span>
+        <svg class="brand-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="brand-section-body"><div style="overflow-x:auto"><table class="brand-detail-table">
+        <thead><tr><th>Part Number</th><th>Name</th><th>Category</th><th>Source</th><th style="width:60px"></th></tr></thead>
+        <tbody>${parts.slice(0,200).map(p => {
+          const src = (p.sources||[p.source||'manual']).join(', ');
+          const besc = brand.replace(/'/g,"\\'");
+          const pesc = p.pn.replace(/'/g,"\\'");
+          return `<tr>
+            <td style="font-family:var(--mono);font-size:11px;color:var(--accent)">${p.pn}</td>
+            <td style="font-size:12px;font-weight:500">${p.name}</td>
+            <td style="font-size:11px;color:var(--muted)">${p.category}</td>
+            <td style="font-size:10px;color:var(--muted2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${src}">${src}</td>
+            <td><button class="btn-sm danger" style="padding:2px 6px;font-size:9px" onclick="removeDBEntry('${besc}','${pesc}')">✕</button></td>
+          </tr>`;
+        }).join('')}${parts.length>200?`<tr><td colspan="5" style="text-align:center;padding:8px;font-size:11px;color:var(--muted)">…and ${parts.length-200} more</td></tr>`:''}</tbody>
+      </table></div></div>
+    </div>`;
+  });
+  document.getElementById('db-brand-list').innerHTML = html || `<div style="text-align:center;padding:24px;font-size:12px;color:var(--muted)">No results for "${q}"</div>`;
+  if (q) document.querySelectorAll('.brand-section').forEach(el => el.classList.add('open'));
+}
+
+function updateDBDatalistHints() {
+  const brands = getBrands();
+  const bdl = document.getElementById('db-brand-datalist');
+  if (bdl) bdl.innerHTML = brands.map(b=>`<option value="${b}">`).join('');
+  const cats = new Set();
+  brands.forEach(b => DB[b].forEach(p => cats.add(p.category)));
+  const cdl = document.getElementById('db-cat-datalist');
+  if (cdl) cdl.innerHTML = [...cats].sort().map(c=>`<option value="${c}">`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// BRAND/PN AUTOCOMPLETE
+// ═══════════════════════════════════════════════════════════
+function refreshBrandSelect() {
+  const sel = document.getElementById('new-brand');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select Brand —</option>' + getBrands().map(b=>`<option>${b}</option>`).join('');
+  document.getElementById('new-pn-input').value = '';
+  document.getElementById('new-pn-dropdown').innerHTML = '';
+}
+window.populateNewPN = function() {
+  document.getElementById('new-pn-input').value = '';
+  document.getElementById('new-pn-dropdown').innerHTML = '';
+  showNewPNDropdown();
+};
+let _newPNSelectedPN = '';
+window.filterNewPN = function(val) {
+  const brand = document.getElementById('new-brand').value;
+  const parts = getPartsForBrand(brand);
+  const q = val.toLowerCase();
+  const filtered = q ? parts.filter(p => p.pn.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)) : parts;
+  renderNewPNDropdown(filtered);
+};
+window.showNewPNDropdown = function() {
+  const brand = document.getElementById('new-brand').value;
+  if (!brand) return;
+  filterNewPN(document.getElementById('new-pn-input').value);
+  document.getElementById('new-pn-dropdown').classList.add('open');
+};
+window.hideNewPNDropdown = function() {
+  setTimeout(() => document.getElementById('new-pn-dropdown').classList.remove('open'), 180);
+};
+function renderNewPNDropdown(parts) {
+  const dd = document.getElementById('new-pn-dropdown');
+  if (!parts.length) { dd.innerHTML = '<div class="autocomplete-item" style="color:var(--muted)">No matches</div>'; return; }
+  dd.innerHTML = parts.slice(0,40).map(p =>
+    `<div class="autocomplete-item" onmousedown="selectNewPN('${p.pn.replace(/'/g,"\\'")}')">
+      <div class="ac-pn">${p.pn}</div><div class="ac-name">${p.name}</div>
+    </div>`).join('');
+}
+window.selectNewPN = function(pn) {
+  document.getElementById('new-pn-input').value = pn;
+  _newPNSelectedPN = pn;
+  document.getElementById('new-pn-dropdown').classList.remove('open');
+};
+
+// ═══════════════════════════════════════════════════════════
+// SCANNER
+// ═══════════════════════════════════════════════════════════
+window.setMode = function(mode) {
+  scanMode = mode;
+  document.getElementById('mode-checkin').classList.toggle('active', mode==='checkin');
+  document.getElementById('mode-checkout').classList.toggle('active', mode==='checkout');
+  const badge = document.getElementById('mode-badge');
+  const noteEl = document.getElementById('scan-note-text');
+  if (mode==='checkin') {
+    badge.textContent='CHECK-IN'; badge.className='badge badge-new';
+    noteEl.innerHTML='<strong>Check-In:</strong> Scan serial numbers. Assign brand, part number & shelf, then confirm.';
+  } else {
+    badge.textContent='CHECK-OUT'; badge.className='badge badge-out';
+    noteEl.innerHTML='<strong>Check-Out:</strong> Scan serial numbers of items you want to check out. Only <em>Available</em> items can be checked out.';
+  }
+  setDot('ready', mode==='checkin'?'Check-In Mode — scan serial numbers':'Check-Out Mode — scan serial numbers');
+  document.getElementById('batch-confirm-btn').className = mode==='checkin'?'btn btn-success':'btn btn-warn';
+  clearBatch();
+};
+
+window.addToBatch = function() {
+  const inp = document.getElementById('barcode-in');
+  const sn = inp.value.trim().toUpperCase();
+  if (!sn) return;
+  inp.value = ''; inp.focus();
+  if (scanMode==='checkin') {
+    if (batchQueue.find(q=>q.sn===sn)) { setDot('error','Duplicate: '+sn); setTimeout(()=>setDot('ready','Check-In Mode'),2000); return; }
+    const existing = findInvRowBySN(sn);
+    if (existing) {
+      const snRec = existing.serials.find(s=>s.sn===sn);
+      if (snRec && snRec.status==='in') { setDot('error',sn+' already in stock'); setTimeout(()=>setDot('ready','Check-In Mode'),2000); return; }
+    }
+    batchQueue.push({sn, brand:'', pn:'', shelf:'', resolved:false});
+  } else {
+    const row = findInvRowBySN(sn);
+    if (!row) { setDot('error','SN not found: '+sn); setTimeout(()=>setDot('ready','Check-Out Mode'),2000); return; }
+    const snRec = row.serials.find(s=>s.sn===sn);
+    if (snRec.status!=='in') { setDot('error',sn+' not available'); setTimeout(()=>setDot('ready','Check-Out Mode'),2000); return; }
+    if (batchQueue.find(q=>q.sn===sn)) { setDot('error','Already queued: '+sn); setTimeout(()=>setDot('ready','Check-Out Mode'),2000); return; }
+    batchQueue.push({sn, brand:row.brand, pn:row.pn, resolved:true});
+    setDot('ready',`Added: ${sn} → ${row.pn}`);
+  }
+  renderBatchQueue();
+};
+
+window.clearBatch = function() {
+  batchQueue=[]; renderBatchQueue();
+  document.getElementById('result-card').className='result-card';
+};
+
+function renderBatchQueue() {
+  const queueEl = document.getElementById('batch-queue');
+  const listEl = document.getElementById('batch-items-list');
+  const countBadge = document.getElementById('batch-count-badge');
+  const footerInfo = document.getElementById('batch-footer-info');
+  const confirmLabel = document.getElementById('batch-confirm-label');
+  if (!batchQueue.length) { queueEl.style.display='none'; return; }
+  queueEl.style.display = 'block';
+  countBadge.textContent = batchQueue.length;
+  countBadge.className = 'batch-count'+(scanMode==='checkout'?' red':' green');
+  document.getElementById('batch-queue-label').textContent = scanMode==='checkin'?'Check-In Queue':'Check-Out Queue';
+  confirmLabel.textContent = `Confirm ${scanMode==='checkin'?'Check-In':'Check-Out'} (${batchQueue.length})`;
+  footerInfo.textContent = `${batchQueue.length} serial number(s) queued`;
+  const brands = getBrands();
+
+  if (scanMode==='checkin') {
+    listEl.innerHTML = `<table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--surface3)">
+        <th style="font-size:10px;color:var(--muted);padding:8px 14px;text-align:left">Serial Number</th>
+        <th style="font-size:10px;color:var(--muted);padding:8px 14px;text-align:left">Brand</th>
+        <th style="font-size:10px;color:var(--muted);padding:8px 14px;text-align:left">Part Number</th>
+        <th style="font-size:10px;color:var(--muted);padding:8px 14px;text-align:left">Shelf</th>
+        <th style="width:32px"></th>
+      </tr></thead>
+      <tbody>${batchQueue.map((item,idx)=>{
+        const brandOpts = brands.map(b=>`<option value="${b}" ${item.brand===b?'selected':''}>${b}</option>`).join('');
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 14px;font-family:var(--mono);font-size:11px;color:var(--accent)">${item.sn}</td>
+          <td style="padding:8px 14px;min-width:160px">
+            <select class="form-select-dark" style="width:100%" onchange="setBatchBrand(${idx},this.value)">
+              <option value="">— Brand —</option>${brandOpts}
+            </select></td>
+          <td style="padding:8px 14px;min-width:220px">${renderBatchPNCell(item, idx)}</td>
+          <td style="padding:8px 14px;min-width:120px">
+            <select class="form-select-dark" style="width:100%" onchange="setBatchShelf(${idx},this.value)">
+              <option value="">— Shelf —</option>${SHELVES.map(s=>`<option ${s===item.shelf?'selected':''}>${s}</option>`).join('')}
+            </select></td>
+          <td style="padding:8px 14px"><button class="batch-item-remove" onclick="removeBatchItem(${idx})">✕</button></td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+  } else {
+    listEl.innerHTML = `<table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--surface3)">
+        <th style="font-size:10px;color:var(--muted);padding:8px 14px;text-align:left">Serial Number</th>
+        <th style="font-size:10px;color:var(--muted);padding:8px 14px;text-align:left">Part Number</th>
+        <th style="font-size:10px;color:var(--muted);padding:8px 14px;text-align:left">Brand</th>
+        <th style="font-size:10px;color:var(--muted);padding:8px 14px;text-align:left">Status</th>
+        <th style="width:32px"></th>
+      </tr></thead>
+      <tbody>${batchQueue.map((item,idx)=>{
+        const row = findInvRowBySN(item.sn);
+        const snRec = row ? row.serials.find(s=>s.sn===item.sn) : null;
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 14px;font-family:var(--mono);font-size:11px;color:var(--accent)">${item.sn}</td>
+          <td style="padding:8px 14px;font-family:var(--mono);font-size:11px">${item.pn||'—'}</td>
+          <td style="padding:8px 14px;font-size:12px;color:var(--muted)">${item.brand||'—'}</td>
+          <td style="padding:8px 14px"><span class="badge ${snRec?getStatusBadge(snRec.status):'badge-pending'}">${snRec?getStatusLabel(snRec.status):'Unknown'}</span></td>
+          <td style="padding:8px 14px"><button class="batch-item-remove" onclick="removeBatchItem(${idx})">✕</button></td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+  }
+}
+
+function renderBatchPNCell(item, idx) {
+  if (!item.brand) return `<span style="font-size:11px;color:var(--muted2)">— Select Brand First —</span>`;
+  const parts = getPartsForBrand(item.brand);
+  const opts = parts.map(p=>`<option value="${p.pn}" ${p.pn===item.pn?'selected':''}>${p.pn}</option>`).join('');
+  return `<select class="form-select-dark" style="width:100%" onchange="setBatchPN(${idx},this.value)">
+    <option value="">— Part Number —</option>${opts}</select>`;
+}
+window.setBatchBrand = (idx, b) => { if (batchQueue[idx]) { batchQueue[idx].brand = b; batchQueue[idx].pn = ''; renderBatchQueue(); } };
+window.setBatchPN = (idx, pn) => { if (batchQueue[idx]) { batchQueue[idx].pn = pn; renderBatchQueue(); } };
+window.setBatchShelf = (idx, s) => { if (batchQueue[idx]) batchQueue[idx].shelf = s; };
+window.removeBatchItem = idx => { batchQueue.splice(idx,1); renderBatchQueue(); };
+
+window.confirmBatch = function() {
+  if (!batchQueue.length) { alert('No items in queue.'); return; }
+  if (scanMode==='checkin') {
+    const unassigned = batchQueue.filter(q=>!q.brand||!q.pn);
+    if (unassigned.length>0 && !confirm(`${unassigned.length} item(s) have no brand/part number and will be skipped. Continue?`)) return;
+    openCheckinAssignModal();
+  } else {
+    openCheckoutConfirmModal();
+  }
+};
+
+// ── Check-in assign modal ──
+function openCheckinAssignModal() {
+  const resolved = batchQueue.filter(q=>q.brand&&q.pn);
+  if (!resolved.length) { alert('Assign brand and part number to at least one item.'); return; }
+  window._assignBatch = resolved.map(item=>({...item}));
+  const brands = getBrands();
+  const container = document.getElementById('assign-sn-list');
+  container.innerHTML = window._assignBatch.map((item, i) => {
+    const brandOpts = brands.map(b=>`<option value="${b}" ${b===item.brand?'selected':''}>${b}</option>`).join('');
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:700">${item.sn}</span>
+        <span class="badge badge-new" style="margin-left:auto">PENDING</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:start">
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">Brand</div>
+          <select class="form-select-dark" style="width:100%" onchange="updateAssignBrand(${i},this.value)">
+            <option value="">— Brand —</option>${brandOpts}
+          </select>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">Part Number</div>
+          <input class="autocomplete-input" id="assign-pn-inp-${i}" value="${item.pn}" placeholder="Type or select..."
+            autocomplete="off"
+            oninput="updateAssignPN(${i},this.value)" />
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">Shelf</div>
+          <select class="form-select-dark" style="width:100%" onchange="updateAssignShelf(${i},this.value)">
+            <option value="">— Shelf —</option>${SHELVES.map(s=>`<option ${s===item.shelf?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div id="assign-info-${i}" style="margin-top:8px;font-size:11px;color:var(--muted)"></div>
+    </div>`;
+  }).join('');
+  document.getElementById('checkin-assign-modal').classList.add('show');
+  window._assignBatch.forEach((_,i) => { if (window._assignBatch[i].pn) updateAssignPNInfo(i); });
+}
+window.updateAssignBrand = (i, b) => {
+  if (!window._assignBatch[i]) return;
+  window._assignBatch[i].brand = b;
+  window._assignBatch[i].pn = '';
+  const inp = document.getElementById('assign-pn-inp-'+i);
+  if (inp) inp.value = '';
+  document.getElementById('assign-info-'+i).innerHTML = '';
+};
+window.updateAssignPN = (i, pn) => {
+  if (window._assignBatch[i]) { window._assignBatch[i].pn = pn; updateAssignPNInfo(i); }
+};
+window.updateAssignShelf = (i, s) => { if (window._assignBatch[i]) window._assignBatch[i].shelf = s; };
+function updateAssignPNInfo(i) {
+  const item = window._assignBatch[i];
+  const infoEl = document.getElementById('assign-info-'+i);
+  if (!infoEl) return;
+  const part = getPartInfo(item.brand, item.pn);
+  infoEl.innerHTML = part
+    ? `<span style="color:var(--accent2)">✓</span> <strong>${part.name}</strong> <span style="color:var(--muted2)">— ${part.category}</span>`
+    : '';
+}
+
+window.finalizeCheckin = async function() {
+  const batch = (window._assignBatch || []).filter(b => b.brand && b.pn);
+  if (!batch.length) { alert('At least one item needs a brand and part number.'); return; }
+  const ts = nowStr();
+  let processed = 0;
+  try {
+    for (const item of batch) {
+      // Look up product
+      const part = getPartInfo(item.brand, item.pn);
+      if (!part) {
+        // Auto-create the catalog entry on check-in
+        await sb.from('products').insert({
+          brand: item.brand, part_number: item.pn,
+          name: item.pn, category: 'Uncategorized', sources: ['manual']
+        }).select();
+      }
+      const { data: prodRow } = await sb.from('products')
+        .select('id, name').eq('brand', item.brand).eq('part_number', item.pn).maybeSingle();
+      if (!prodRow) continue;
+
+      // Upsert inventory item by serial_number (UNIQUE)
+      const { data: existing } = await sb.from('inventory_items')
+        .select('id, shelf').eq('serial_number', item.sn).maybeSingle();
+      if (existing) {
+        await sb.from('inventory_items').update({
+          status: 'in', checked_out_by: null, checked_out_dept: null, so_number: null,
+          shelf: item.shelf || existing.shelf,
+          last_scan: ts,
+          product_id: prodRow.id
+        }).eq('id', existing.id);
+      } else {
+        await sb.from('inventory_items').insert({
+          serial_number: item.sn, product_id: prodRow.id,
+          shelf: item.shelf || null, status: 'in', last_scan: ts
+        });
+      }
+      await logAction(item.sn,
+        `Check-IN: ${prodRow.name} [${item.pn}] — SN: ${item.sn}${item.shelf?' — '+item.shelf:''}`,
+        'in');
+      processed++;
+    }
+    closeModal('checkin-assign-modal');
+    const card = document.getElementById('result-card');
+    card.className = 'result-card show';
+    card.innerHTML = `<div class="rc-body rc-success">
+      <div class="rc-row">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span style="font-size:12px;color:var(--accent2);font-weight:700">Batch Check-In Complete</span>
+        <span class="badge badge-in">AVAILABLE</span>
+      </div>
+      <div class="rc-meta"><strong style="color:var(--accent2)">${processed}</strong> serial number(s) checked in.</div>
+    </div>`;
+    clearBatch();
+    await loadAll();
+  } catch (e) {
+    showToast('⚠ ' + e.message, 'error');
+  }
+};
+
+// ── Check-out modal ──
+function openCheckoutConfirmModal() {
+  checkoutBatch = [...batchQueue];
+  const summaryEl = document.getElementById('co-items-summary');
+  summaryEl.innerHTML = checkoutBatch.map(item => {
+    const row = findInvRowBySN(item.sn);
+    return `<div style="display:flex;gap:10px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--accent)">${item.sn}</span>
+      <span style="font-size:11px;color:var(--text);flex:1">${row?row.pn:'—'}</span>
+      <span style="font-size:11px;color:var(--muted)">${row?row.brand:'—'}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('co-name').value='';
+  document.getElementById('co-dept').value='';
+  document.getElementById('co-so').value='';
+  document.getElementById('checkout-confirm-modal').classList.add('show');
+  setTimeout(()=>document.getElementById('co-name').focus(),100);
+}
+
+window.finalizeCheckout = async function() {
+  const name = document.getElementById('co-name').value.trim();
+  const dept = document.getElementById('co-dept').value.trim();
+  const so   = document.getElementById('co-so').value.trim();
+  if (!name) { alert('Please enter a name or employee ID.'); return; }
+  const ts = nowStr();
+  const coLabel = name + (dept ? ` (${dept})` : '') + (so ? ` — ${so}` : '');
+  let processed = 0;
+  try {
+    for (const item of checkoutBatch) {
+      const row = findInvRowBySN(item.sn);
+      if (!row) continue;
+      const snRec = row.serials.find(s=>s.sn===item.sn);
+      if (!snRec || snRec.status!=='in') continue;
+      const { error } = await sb.from('inventory_items')
+        .update({ status: 'out', checked_out_by: coLabel, checked_out_dept: dept || null, so_number: so || null, last_scan: ts })
+        .eq('serial_number', item.sn).eq('status', 'in');
+      if (error) continue;
+      await logAction(item.sn,
+        `Check-OUT: ${row.name} [${row.pn}] — SN: ${item.sn} — By: ${name}${dept?' / '+dept:''}${so?' | '+so:''}`,
+        'out');
+      processed++;
+    }
+    closeModal('checkout-confirm-modal');
+    const card = document.getElementById('result-card');
+    card.className='result-card show';
+    card.innerHTML=`<div class="rc-body rc-danger">
+      <div class="rc-row">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span style="font-size:12px;color:var(--danger);font-weight:700">Batch Check-Out Complete</span>
+        <span class="badge badge-out">CHECKED OUT</span>
+      </div>
+      <div class="rc-meta"><strong style="color:var(--danger)">${processed}</strong> item(s) checked out by <span style="font-family:var(--mono);color:var(--accent)">${name}${dept?' / '+dept:''}</span></div>
+    </div>`;
+    clearBatch();
+    await loadAll();
+  } catch (e) {
+    showToast('⚠ ' + e.message, 'error');
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════════════════════════
+window.toggleCamera = function() { cameraRunning ? stopCamera() : startCamera(); };
+function startCamera() {
+  const preview = document.getElementById('camera-preview');
+  const btn = document.getElementById('cam-toggle-btn');
+  preview.style.display='block'; btn.classList.add('active');
+  btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34m-7.72-2.06A4 4 0 1 1 7.75 9.75"/></svg> Stop Camera`;
+  document.getElementById('cam-hint').textContent='Scanning…';
+  setDot('looking','Camera active — scanning…');
+  html5QrCode = new Html5Qrcode('camera-preview');
+  html5QrCode.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:160}},
+    decoded => {
+      const ts = Date.now();
+      if (decoded===lastScanned && ts-lastScannedTime<2500) return;
+      lastScanned=decoded; lastScannedTime=ts;
+      document.getElementById('barcode-in').value=decoded.trim().toUpperCase();
+      addToBatch();
+    },()=>{}
+  ).then(()=>{cameraRunning=true;}).catch(err=>{
+    document.getElementById('cam-hint').textContent='Camera error: '+err;
+    preview.style.display='none'; btn.classList.remove('active');
+    btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Start Camera`;
+  });
+}
+function stopCamera() {
+  if (!html5QrCode) return;
+  html5QrCode.stop().then(()=>{
+    html5QrCode.clear(); html5QrCode=null; cameraRunning=false;
+    document.getElementById('camera-preview').style.display='none';
+    const btn=document.getElementById('cam-toggle-btn');
+    btn.classList.remove('active');
+    btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Start Camera`;
+    document.getElementById('cam-hint').textContent='Point at serial number barcode';
+    setDot('ready','Waiting for scan…');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// INVENTORY TAB ACTIONS
+// ═══════════════════════════════════════════════════════════
+window.addComponentManual = async function() {
+  const brand = document.getElementById('new-brand').value;
+  const pn = (document.getElementById('new-pn-input').value || _newPNSelectedPN).trim();
+  const sn = document.getElementById('new-serial').value.trim().toUpperCase();
+  const shelf = document.getElementById('new-shelf').value;
+  if (!brand || !pn) { alert('Please select a brand and part number.'); return; }
+  if (!sn) { alert('Please enter a serial number.'); return; }
+  if (findInvRowBySN(sn)) { alert(`Serial number ${sn} is already registered.`); return; }
+  try {
+    const { data: prod } = await sb.from('products')
+      .select('id, name').eq('brand', brand).eq('part_number', pn).maybeSingle();
+    if (!prod) { alert('Product not found in database.'); return; }
+    const { error } = await sb.from('inventory_items').insert({
+      serial_number: sn, product_id: prod.id, shelf: shelf || null,
+      status: 'notcheckedin', last_scan: nowStr()
+    });
+    if (error) throw error;
+    document.getElementById('new-serial').value = '';
+    await logAction(sn, `Manually added: ${prod.name} [${pn}] SN: ${sn}${shelf?' — '+shelf:''}`, 'info');
+    showToast(`✓ Added ${sn}`, 'success');
+    await loadAll();
+  } catch (e) {
+    showToast('⚠ ' + e.message, 'error');
+  }
+};
+
+window.quickCheckIn = async function(brand, pn) {
+  try {
+    const { data: prod } = await sb.from('products')
+      .select('id, name').eq('brand', brand).eq('part_number', pn).maybeSingle();
+    if (!prod) return;
+    const { data, error } = await sb.from('inventory_items')
+      .update({ status: 'in', last_scan: nowStr() })
+      .eq('product_id', prod.id).neq('status', 'in').select();
+    if (error) throw error;
+    const count = (data || []).length;
+    if (!count) { alert('All units already checked in.'); return; }
+    await logAction(pn, `Quick Check-IN: ${prod.name} — ${count} unit(s)`, 'in');
+    showToast(`✓ Checked in ${count} unit(s)`, 'success');
+    await loadAll();
+    flashRow(pn);
+  } catch (e) { showToast('⚠ ' + e.message, 'error'); }
+};
+
+window.quickCheckOut = function(brand, pn, sn) {
+  checkoutBatch = [{sn, brand, pn, resolved:true}];
+  const summaryEl = document.getElementById('co-items-summary');
+  summaryEl.innerHTML = `<div style="display:flex;gap:10px;align-items:center;padding:4px 0">
+    <span style="font-family:var(--mono);font-size:11px;color:var(--accent)">${sn}</span>
+    <span style="font-size:11px;color:var(--text);flex:1">${pn}</span>
+    <span style="font-size:11px;color:var(--muted)">${brand}</span>
+  </div>`;
+  document.getElementById('co-name').value='';
+  document.getElementById('co-dept').value='';
+  document.getElementById('co-so').value='';
+  document.getElementById('checkout-confirm-modal').classList.add('show');
+  setTimeout(()=>document.getElementById('co-name').focus(),100);
+};
+
+window.returnItem = async function(sn) {
+  try {
+    const row = findInvRowBySN(sn);
+    if (!row) return;
+    const { error } = await sb.from('inventory_items').update({
+      status: 'in', checked_out_by: null, checked_out_dept: null, so_number: null, last_scan: nowStr()
+    }).eq('serial_number', sn);
+    if (error) throw error;
+    await logAction(sn, `Returned: ${row.name} [${row.pn}] SN: ${sn}`, 'in');
+    showToast(`✓ Returned ${sn}`, 'success');
+    await loadAll();
+  } catch (e) { showToast('⚠ ' + e.message, 'error'); }
+};
+
+window.removeSerial = async function(pn, sn) {
+  if (!confirm(`Remove serial ${sn} from ${pn}?`)) return;
+  try {
+    const { error } = await sb.from('inventory_items').delete().eq('serial_number', sn);
+    if (error) throw error;
+    await logAction(sn, `Removed SN ${sn} from ${pn}`, 'warn');
+    showToast(`Removed ${sn}`, 'warn');
+    await loadAll();
+  } catch (e) { showToast('⚠ ' + e.message, 'error'); }
+};
+
+window.removePart = async function(brand, pn) {
+  if (!confirm(`Remove all serials for ${pn}?`)) return;
+  try {
+    const { data: prod } = await sb.from('products')
+      .select('id').eq('brand', brand).eq('part_number', pn).maybeSingle();
+    if (!prod) return;
+    const { data, error } = await sb.from('inventory_items')
+      .delete().eq('product_id', prod.id).select();
+    if (error) throw error;
+    await logAction(pn, `Removed all serials for ${pn}`, 'warn');
+    showToast(`Removed ${(data||[]).length} serial(s)`, 'warn');
+    await loadAll();
+  } catch (e) { showToast('⚠ ' + e.message, 'error'); }
+};
+
+// ═══════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════
+function renderAll() { renderStats(); renderTable(); renderLog(); renderDashboard(); renderDBTab(); }
+
+function getInvStats() {
+  let total=0, inStock=0, out=0, units=0;
+  inventory.forEach(row=>{
+    const snIn = row.serials.filter(s=>s.status==='in').length;
+    const snOut = row.serials.filter(s=>s.status==='out').length;
+    const snNot = row.serials.filter(s=>s.status==='notcheckedin').length;
+    units += row.serials.length;
+    inStock += snIn;
+    out += snOut;
+    if (snIn||snOut||snNot) total++;
+  });
+  return {total, inStock, out, units};
+}
+
+function renderStats() {
+  const s = getInvStats();
+  document.getElementById('d-total').textContent = s.total;
+  document.getElementById('d-in').textContent = s.inStock;
+  document.getElementById('d-out').textContent = s.out;
+  document.getElementById('d-units').textContent = s.units;
+}
+
+function renderDashboard() {
+  renderStats();
+  const s = getInvStats();
+  const totalUnits = s.units || 1;
+  const byStatus = [
+    {label:'Available', val:s.inStock, color:'#22c55e'},
+    {label:'Checked Out', val:s.out, color:'#ef4444'},
+    {label:'Not Checked-In', val:s.units-s.inStock-s.out, color:'#a855f7'},
+  ];
+  document.getElementById('dash-category-bars').innerHTML = byStatus.map(st=>`
+    <div class="progress-bar-wrap">
+      <div class="progress-label"><span>${st.label}</span><span style="font-family:var(--mono);font-size:11px;color:var(--text)">${st.val} <span style="color:var(--muted2)">/ ${s.units}</span></span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${(st.val/totalUnits*100).toFixed(1)}%;background:${st.color}"></div></div>
+    </div>`).join('');
+
+  const brands = {};
+  inventory.forEach(row=>{ if (!brands[row.brand]) brands[row.brand]={units:0}; brands[row.brand].units += row.serials.length; });
+  let cIdx = 0;
+  document.getElementById('dash-brand-bars').innerHTML = Object.entries(brands).map(([b,d])=>`
+    <div class="progress-bar-wrap">
+      <div class="progress-label"><span>${b}</span><span style="font-family:var(--mono);font-size:11px;color:var(--text)">${d.units} units</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${(d.units/totalUnits*100).toFixed(1)}%;background:${BRAND_COLORS[cIdx++%BRAND_COLORS.length]}"></div></div>
+    </div>`).join('') || '<div style="font-size:12px;color:var(--muted2)">No data yet</div>';
+
+  const outRows = [];
+  inventory.forEach(row=>{
+    row.serials.filter(s=>s.status==='out').forEach(s=>{
+      outRows.push({sn:s.sn, pn:row.pn, name:row.name, brand:row.brand, by:s.checkedOutBy, time:s.time});
+    });
+  });
+  const outTbody = document.getElementById('dash-out-tbody');
+  document.getElementById('d-out-count').textContent = outRows.length ? `${outRows.length} item(s)` : '';
+  outTbody.innerHTML = outRows.length
+    ? outRows.map(r=>`<tr>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--danger)">${r.sn}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--accent)">${r.pn}</td>
+        <td style="font-size:12px;font-weight:600">${r.name}</td>
+        <td style="font-size:11px;color:var(--muted)">${r.brand}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--warn)">${r.by||'—'}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--muted2)">${r.time}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6"><div class="empty">No items checked out</div></td></tr>';
+
+  const cats = {};
+  inventory.forEach(row=>{
+    if (!cats[row.category]) cats[row.category]={parts:0,units:0,inStock:0,out:0};
+    cats[row.category].parts++;
+    cats[row.category].units += row.serials.length;
+    cats[row.category].inStock += row.serials.filter(s=>s.status==='in').length;
+    cats[row.category].out += row.serials.filter(s=>s.status==='out').length;
+  });
+  const catTbody = document.getElementById('dash-cat-tbody');
+  const entries = Object.entries(cats);
+  catTbody.innerHTML = entries.length
+    ? entries.sort((a,b)=>a[0].localeCompare(b[0])).map(([cat,d])=>`<tr>
+        <td style="font-weight:600;font-size:12px">${cat}</td>
+        <td style="font-family:var(--mono);font-size:12px;color:var(--accent)">${d.parts}</td>
+        <td style="font-family:var(--mono);font-size:12px;color:var(--warn)">${d.units}</td>
+        <td><span style="font-family:var(--mono);font-size:12px;color:var(--accent2)">${d.inStock}</span></td>
+        <td><span style="font-family:var(--mono);font-size:12px;color:${d.out>0?'var(--danger)':'var(--muted2)'}">${d.out}</span></td>
+      </tr>`).join('')
+    : '<tr><td colspan="5"><div class="empty">No components yet</div></td></tr>';
+}
+
+function renderTable() {
+  const search = (document.getElementById('search-inp')?.value||'').toLowerCase();
+  let list = inventory;
+  if (activeFilter==='in') list = list.filter(row=>row.serials.some(s=>s.status==='in'));
+  else if (activeFilter==='out') list = list.filter(row=>row.serials.some(s=>s.status==='out'));
+  if (search) list = list.filter(row=>
+    row.pn.toLowerCase().includes(search)||
+    row.name.toLowerCase().includes(search)||
+    row.brand.toLowerCase().includes(search)||
+    row.category.toLowerCase().includes(search)||
+    (row.shelf||'').toLowerCase().includes(search)||
+    row.serials.some(s=>s.sn.toLowerCase().includes(search))
+  );
+  const tbody = document.getElementById('tool-tbody');
+  if (!list.length) { tbody.innerHTML='<tr><td colspan="9"><div class="empty">No components found</div></td></tr>'; return; }
+  const isAdmin = currentUser.role === 'admin';
+  tbody.innerHTML = list.map(row=>{
+    const inCount = row.serials.filter(s=>s.status==='in').length;
+    const total = row.serials.length;
+    const besc = row.brand.replace(/'/g,"\\'");
+    const pesc = row.pn.replace(/'/g,"\\'");
+    const snHtml = row.serials.map(s=>{
+      const sesc = s.sn.replace(/'/g,"\\'");
+      let actionBtn='', removeBtn='';
+      if (isAdmin) {
+        if (s.status==='notcheckedin') actionBtn=`<button class="btn-sm success" style="padding:1px 6px;font-size:9px" onclick="quickCheckIn('${besc}','${pesc}')">In</button>`;
+        else if (s.status==='in') actionBtn=`<button class="btn-sm" style="padding:1px 6px;font-size:9px" onclick="quickCheckOut('${besc}','${pesc}','${sesc}')">Out</button>`;
+        else if (s.status==='out') actionBtn=`<button class="btn-sm success" style="padding:1px 6px;font-size:9px" onclick="returnItem('${sesc}')">Return</button>`;
+        removeBtn = `<button class="btn-sm danger" style="padding:1px 5px;font-size:9px" onclick="removeSerial('${pesc}','${sesc}')">✕</button>`;
+      }
+      return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+        <span class="sn-tag" style="${s.status==='in'?'color:var(--accent2);border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.08)':s.status==='out'?'color:var(--danger);border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.08)':''}">${s.sn}</span>
+        <span class="badge ${getStatusBadge(s.status)}" style="font-size:8px;padding:1px 5px">${getStatusLabel(s.status)}</span>
+        ${actionBtn}${removeBtn}
+      </div>`;
+    }).join('');
+    const outSerials = row.serials.filter(s=>s.status==='out');
+    const coByHtml = outSerials.length
+      ? outSerials.map(s=>`<div style="font-size:11px;font-family:var(--mono);color:var(--warn)">${s.sn}: ${s.checkedOutBy||'—'}</div>`).join('')
+      : '<span style="color:var(--muted2);font-size:11px">—</span>';
+    const actionsCell = isAdmin ? `<div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn-sm success" onclick="quickCheckIn('${besc}','${pesc}')">Check In All</button>
+        <button class="btn-sm danger" onclick="removePart('${besc}','${pesc}')">✕ Remove</button>
+      </div>` : '<span style="color:var(--muted2);font-size:11px">—</span>';
+    return `<tr data-pn="${row.pn}">
+      <td style="font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap"><div>${row.pn}</div><div style="font-size:10px;color:var(--muted2);margin-top:2px">${row.brand}</div></td>
+      <td style="max-width:280px">${snHtml}</td>
+      <td style="font-weight:600;font-size:12px;max-width:220px">${row.name}</td>
+      <td style="color:var(--muted);font-size:11px;white-space:nowrap">${row.category}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--warn)">${row.shelf||'—'}</td>
+      <td><span class="badge badge-qty">${inCount}/${total}</span></td>
+      <td style="max-width:200px">${coByHtml}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted2);white-space:nowrap">${row.lastScan}</td>
+      <td>${actionsCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderLog() {
+  const el = document.getElementById('log-list');
+  if (!logs.length) { el.innerHTML='<div class="empty">No scans yet</div>'; return; }
+  el.innerHTML = logs.slice(0,300).map(l=>{
+    const tc = l.type==='in'?'var(--accent2)':l.type==='out'?'var(--danger)':l.type==='warn'?'var(--warn)':'var(--muted)';
+    return `<div class="log-item"><span class="log-time">${l.time}</span><span class="log-code">${l.code}</span><span style="color:${tc}">${l.msg}</span></div>`;
+  }).join('');
+}
+
+window.setFilter = function(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+};
+
+window.clearLog = async function() {
+  if (!confirm('Clear all scan history?')) return;
+  const { error } = await sb.from('scan_logs').delete().gt('id', 0);
+  if (error) { showToast('⚠ ' + error.message, 'error'); return; }
+  logs = [];
+  renderLog();
+  showToast('Log cleared', 'warn');
+};
+
+// ═══════════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════════
+window.exportToExcel = async function() {
+  if (!sb) { alert('Supabase not configured.'); return; }
+  try {
+    const { data, error } = await sb.from('inventory_items')
+      .select(`serial_number, shelf, status, checked_out_by, last_scan,
+               products(brand, part_number, name, category)`);
+    if (error) throw error;
+    if (!data?.length) { alert('No inventory to export.'); return; }
+    const rows = [['Brand','Part Number','Component Name','Category','Shelf','Serial Number','Status','Checked-Out By','Last Scan']];
+    data.forEach(r=>{
+      const p = r.products || {};
+      rows.push([p.brand||'', p.part_number||'', p.name||'', p.category||'',
+                 r.shelf||'', r.serial_number, getStatusLabel(r.status),
+                 r.checked_out_by||'', r.last_scan||'']);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+    XLSX.writeFile(wb, `warehouse_inventory_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } catch (e) {
+    showToast('⚠ ' + e.message, 'error');
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════
+(async () => {
+  await refreshUser();
+  await loadAll();
+  // React to login/logout from another tab
+  if (sb) {
+    sb.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        await refreshUser();
+        await loadAll();
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>
